@@ -134,18 +134,26 @@ def main(args):
     basedir, corpus_path = get_dirs(args)
     filenames = sorted(glob.glob(os.path.join(basedir, corpus_path, '*.txt')))
     columns = ['filename'] + args.meta_fields.split(',')
-    dtypes = {colname: 'category' for colname in columns}
 
     # read metadata about text type
-    try:
-        # Try reading the table using usecols for arbitrary position matching.
-        df_groups = pd.read_table(os.path.join(args.datadir, 'groups.csv'),
-                                  usecols=columns, dtype=dtypes)
-    except ValueError:
-        print('Error reading columns "{}" from {}. Assuming first column is filename and others as specified by --meta (default=\'brow\').'.format(','.join(columns), os.path.join(args.datadir, 'groups.csv')))
-        df_groups = pd.read_table(os.path.join(args.datadir, 'groups.csv'),
-                                  sep=None, engine='python')
-        df_groups.columns = columns
+    file_columns = set(pd.read_table(os.path.join(args.datadir, 'groups.csv'),
+                                     sep=None, engine='python',
+                                     nrows=0).columns.tolist())
+    common_columns = file_columns.intersection(set(columns))
+    if 'filename' not in common_columns:
+        if 'idno' in file_columns:
+            common_columns.add('idno')
+        elif 'textid' in file_columns:
+            common_columns.add('textid')
+
+    dtypes = {colname: 'category' for colname in common_columns}
+
+    df_groups = pd.read_table(os.path.join(args.datadir, 'groups.csv'),
+                              sep=None, engine='python',
+                              usecols=common_columns, dtype=dtypes)
+    df_groups.rename(columns={'idno': 'filename', 'textid': 'filename'}, inplace=True)
+    df_groups.rename(columns=lambda s: s.lower().replace('-', '_'),
+                     inplace=True)
 
     # calculate sttr for 10, 100...1000 winsize
     df_results = calc_sttrs(filenames, 10, args.remove_punctuation)
