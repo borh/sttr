@@ -129,14 +129,12 @@ def get_dirs(args):
     return args.datadir, corpus_path
 
 
-def main(args):
-    start_msg(args)
-    basedir, corpus_path = get_dirs(args)
+def corpus_sttr(basedir, corpus_path, meta_fields, remove_punctuation):
     filenames = sorted(glob.glob(os.path.join(basedir, corpus_path, '*.txt')))
-    columns = ['filename'] + args.meta_fields.split(',')
+    columns = ['filename'] + meta_fields
 
     # read metadata about text type
-    file_columns = set(pd.read_table(os.path.join(args.datadir, 'groups.csv'),
+    file_columns = set(pd.read_table(os.path.join(basedir, 'groups.csv'),
                                      sep=None, engine='python',
                                      nrows=0).columns.tolist())
     common_columns = file_columns.intersection(set(columns))
@@ -148,7 +146,7 @@ def main(args):
 
     dtypes = {colname: 'category' for colname in common_columns}
 
-    df_groups = pd.read_table(os.path.join(args.datadir, 'groups.csv'),
+    df_groups = pd.read_table(os.path.join(basedir, 'groups.csv'),
                               sep=None, engine='python',
                               usecols=common_columns, dtype=dtypes)
     df_groups.rename(columns={'idno': 'filename', 'textid': 'filename'}, inplace=True)
@@ -156,11 +154,19 @@ def main(args):
                      inplace=True)
 
     # calculate sttr for 10, 100...1000 winsize
-    df_results = calc_sttrs(filenames, 10, args.remove_punctuation)
+    df_results = calc_sttrs(filenames, 10, remove_punctuation)
     ngroups = df_groups
     for i in range(100, 1001, 100):  # i: window size
-        df_results = df_results.append(calc_sttrs(filenames, i, args.remove_punctuation))
+        df_results = df_results.append(calc_sttrs(filenames, i, remove_punctuation))
         ngroups = ngroups.append(df_groups)
+
+    return df_results, ngroups
+
+def main(args):
+    start_msg(args)
+    basedir, corpus_path = get_dirs(args)
+    meta_fields = args.meta_fields.split(',')
+    df_results, ngroups = corpus_sttr(basedir, corpus_path, meta_fields, args.remove_punctuation)
 
     write_results(args.output, df_results, ngroups)
     print('Done. Results written to {}'.format(args.output))
