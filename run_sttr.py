@@ -63,7 +63,7 @@ def read_txt(file, remove_punctuation):
         for line in f:
             token = line.rstrip()
             if token == '<EOS>' or token == '<PGB>':
-                pass
+                continue
 
             if remove_punctuation:
                 normalized_token = remove_punct(token)
