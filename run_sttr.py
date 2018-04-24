@@ -107,8 +107,8 @@ def calc_sttrs(filenames, winsize, remove_punctuation):
         textlengths.append(text_len)
     df_sttr = pd.DataFrame(sttr_results)
     df_sttr.columns = ['filename', 'sttr', 'ci', 'sd']
-    df_sttr.insert(loc=0, column='window', value=[winsize]*len(filenames))
-    df_sttr.insert(loc=0, column='text_length', value=textlengths)
+    df_sttr.insert(loc=1, column='window', value=[winsize]*len(filenames))
+    df_sttr.insert(loc=2, column='text_length', value=textlengths)
     return df_sttr
 
 
