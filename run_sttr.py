@@ -86,9 +86,10 @@ def write_results(out_file, df_sttr, df_groups):
 
     df_groups.reset_index(inplace=True, drop=True)
     df_sttr.reset_index(inplace=True, drop=True)
-    df_result = df_groups.merge(df_sttr, on=['filename'], how='inner',
-                                left_index=True, right_index=True, sort=True)
-    df_result.to_csv(out_file, sep='\t', encoding='utf-8', index=False)
+    df_result = df_sttr.merge(df_groups, on=['filename', 'window'], how='inner',
+                              left_index=True, right_index=True, sort=True)
+    df_result.set_index('filename', inplace=True)
+    df_result.to_csv(out_file, sep='\t', encoding='utf-8', index=True)
 
 
 def calc_sttrs(filenames, winsize, remove_punctuation):
