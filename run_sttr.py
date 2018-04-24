@@ -113,21 +113,8 @@ def calc_sttrs(filenames, winsize, remove_punctuation):
 
 
 def start_msg(args):
-    print('Processing files in {}'.format(args.datadir))
-    if args.tokenized:
-        t = 'tokenized'
-    else:
-        t = 'plain'
-    print('using {} files'.format(t))
-
-
-def get_dirs(args):
-    # choose tokenized text or plain text
-    if args.tokenized:
-        corpus_path = 'Tokenized'
-    else:
-        corpus_path = 'Plain'
-    return args.datadir, corpus_path
+    print('Processing files in {}'.format(args.datadirs))
+    print('using {} files'.format('tokenized' if args.tokenized else 'plain'))
 
 
 def corpus_sttr(basedir, corpus_path, meta_fields, remove_punctuation):
@@ -135,48 +122,75 @@ def corpus_sttr(basedir, corpus_path, meta_fields, remove_punctuation):
     columns = ['filename'] + meta_fields
 
     # read metadata about text type
-    file_columns = set(pd.read_table(os.path.join(basedir, 'groups.csv'),
-                                     sep=None, engine='python',
-                                     nrows=0).columns.tolist())
-    common_columns = file_columns.intersection(set(columns))
-    if 'filename' not in common_columns:
-        if 'idno' in file_columns:
-            common_columns.add('idno')
-        elif 'textid' in file_columns:
-            common_columns.add('textid')
-
-    dtypes = {colname: 'category' for colname in common_columns}
-
     df_groups = pd.read_table(os.path.join(basedir, 'groups.csv'),
-                              sep=None, engine='python',
-                              usecols=common_columns, dtype=dtypes)
-    df_groups.rename(columns={'idno': 'filename', 'textid': 'filename'}, inplace=True)
+                              sep=None, engine='python')
+    df_groups.rename(columns={'idno': 'filename', 'textid': 'filename'},
+                     inplace=True)
     df_groups.rename(columns=lambda s: s.lower().replace('-', '_'),
                      inplace=True)
+    selected_columns = set(df_groups.columns.tolist()) & set(columns)
+    df_groups = df_groups[list(selected_columns)]
 
-    # calculate sttr for 10, 100...1000 winsize
+    # Sanity checks:
+    filenames_set = {os.path.basename(filename) for filename in filenames}
+    groups_filenames_set = set(df_groups['filename'])
+    if len(df_groups['filename']) != len(groups_filenames_set):
+        from collections import Counter
+        c = Counter(df_groups['filename'])
+        raise ValueError('Error: Duplicate filename(s) detected in groups.csv: "{}". Aborting.'.format({filename for filename, freq in c.items() if freq >= 2}))
+    if filenames_set != groups_filenames_set or len(df_groups) != len(filenames_set):
+        raise ValueError("Warning: groups.csv and filesystem contain differing information: {}\nOnly in groups.csv: {}\nOnly on filesystem: {}".format(
+            filenames_set ^ groups_filenames_set,
+            groups_filenames_set.difference(filenames_set),
+            filenames_set.difference(groups_filenames_set)
+        ))
+
+    # calculate sttr for window size 10
     df_results = calc_sttrs(filenames, 10, remove_punctuation)
-    ngroups = df_groups
-    for i in range(100, 1001, 100):  # i: window size
-        df_results = df_results.append(calc_sttrs(filenames, i, remove_punctuation))
-        ngroups = ngroups.append(df_groups)
+    ngroups = df_groups.copy()
+    ngroups.insert(loc=1, column='window', value=10)
 
+    # repeat for 100...1000 winsize
+    for i in range(100, 1001, 100):  # i: window size
+        r = calc_sttrs(filenames, i, remove_punctuation)
+        df_results = df_results.append(r)
+        g = df_groups.copy()  # insert window size for merging
+        g.insert(loc=1, column='window', value=i)
+        ngroups = ngroups.append(g)
     return df_results, ngroups
+
+
+def corpora_merge(corpora_paths, corpus_type, output, meta_fields, remove_punctuation):
+    results, ngroups = pd.DataFrame(), pd.DataFrame(columns=['filename'] + meta_fields)
+    for path in corpora_paths:
+        r, g = corpus_sttr(path, corpus_type, meta_fields, remove_punctuation)
+        corpus_name = os.path.basename(path)
+        out_fn = 'sttr_' + corpus_name
+        write_results(out_fn, r.copy(), g.copy())
+        print('Results for corpus \'{}\' written to \'{}.tsv\'.'.format(corpus_name, out_fn))
+        g.insert(loc=1, column='corpus_name', value=corpus_name)
+        results = results.append(r)
+        ngroups = ngroups.append(g)
+
+    results.reset_index(inplace=True, drop=True)
+    ngroups.reset_index(inplace=True, drop=True)
+
+    write_results('merged_results', results, ngroups)
+
 
 def main(args):
     start_msg(args)
-    basedir, corpus_path = get_dirs(args)
-    meta_fields = args.meta_fields.split(',')
-    df_results, ngroups = corpus_sttr(basedir, corpus_path, meta_fields, args.remove_punctuation)
 
-    write_results(args.output, df_results, ngroups)
-    print('Done. Results written to {}'.format(args.output))
+    corpora_paths = args.datadirs
+    corpus_type = 'Tokenized' if args.tokenized else 'Plain'
+    meta_fields = args.meta_fields.split(',')
+    corpora_merge(corpora_paths, corpus_type, args.output, meta_fields, args.remove_punctuation)
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='calculates sttr')
-    parser.add_argument('datadir', type=str, help='directory with data in csv files')
     parser.add_argument('output', type=str, help='name of file to write results to')
+    parser.add_argument('datadirs', type=str, help='directory with data in csv files', nargs='+')
     parser.add_argument('--meta', default='brow', dest='meta_fields',
                         help='specify metadata fields in CSV to use as categorical features, optional, (default=\'brow\'); Format: specify as CSV string')
     parser.add_argument('-t', default=True, action='store_true', dest='tokenized',
