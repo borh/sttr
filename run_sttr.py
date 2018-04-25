@@ -87,7 +87,7 @@ def write_results(out_file, df_sttr, df_groups):
     df_groups.reset_index(inplace=True, drop=True)
     df_sttr.reset_index(inplace=True, drop=True)
     df_result = df_sttr.merge(df_groups, on=['filename', 'window'], how='inner',
-                              left_index=True, right_index=True, sort=True)
+                              left_index=True, right_index=True, sort=False)
     df_result.set_index('filename', inplace=True)
     df_result.to_csv(out_file, sep='\t', encoding='utf-8', index=True)
 
@@ -132,8 +132,10 @@ def corpus_sttr(basedir, corpus_path, meta_fields, remove_punctuation):
     df_groups = df_groups[list(selected_columns)]
 
     # Sanity checks:
-    filenames_set = {os.path.basename(filename) for filename in filenames}
-    groups_filenames_set = set(df_groups['filename'])
+    filenames_set = set(filenames)
+    groups_filenames = [os.path.join(basedir, corpus_path, filename)
+                        for filename in df_groups['filename']]
+    groups_filenames_set = set(groups_filenames)
     if len(df_groups['filename']) != len(groups_filenames_set):
         from collections import Counter
         c = Counter(df_groups['filename'])
@@ -146,13 +148,13 @@ def corpus_sttr(basedir, corpus_path, meta_fields, remove_punctuation):
         ))
 
     # calculate sttr for window size 10
-    df_results = calc_sttrs(filenames, 10, remove_punctuation)
+    df_results = calc_sttrs(groups_filenames, 10, remove_punctuation)
     ngroups = df_groups.copy()
     ngroups.insert(loc=1, column='window', value=10)
 
     # repeat for 100...1000 winsize
     for i in range(100, 1001, 100):  # i: window size
-        r = calc_sttrs(filenames, i, remove_punctuation)
+        r = calc_sttrs(groups_filenames, i, remove_punctuation)
         df_results = df_results.append(r)
         g = df_groups.copy()  # insert window size for merging
         g.insert(loc=1, column='window', value=i)
@@ -171,6 +173,9 @@ def corpora_merge(corpora_paths, corpus_type, output, meta_fields, remove_punctu
         g.insert(loc=1, column='corpus_name', value=corpus_name)
         results = results.append(r)
         ngroups = ngroups.append(g)
+
+    if len(corpora_paths) == 1:
+        return
 
     results.reset_index(inplace=True, drop=True)
     ngroups.reset_index(inplace=True, drop=True)
