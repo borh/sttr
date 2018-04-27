@@ -51,10 +51,7 @@ def remove_punct(text):
     :param text: input str
     :return: str
     '''
-    if re.match(r'<(EOS|PGB)>', text):
-        return ''
-    else:
-        return re.sub(r'[^\w]', '', text)
+    return re.sub(r'[^\w]', '', text)
 
 
 def read_txt(file, remove_punctuation):
