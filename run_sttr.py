@@ -168,14 +168,20 @@ def corpus_sttr(basedir, corpus_path, meta_fields, remove_punctuation):
     return df_results, ngroups
 
 
-def corpora_merge(corpora_paths, corpus_type, output, meta_fields, remove_punctuation):
+def corpora_merge(corpora_paths, corpus_type, meta_fields, remove_punctuation):
     results, ngroups = pd.DataFrame(), pd.DataFrame(columns=['filename'] + meta_fields)
     for path in corpora_paths:
-        r, g = corpus_sttr(path, corpus_type, meta_fields, remove_punctuation)
+        punc = False if re.search(r'japanese', path, re.I) else remove_punctuation
+        r, g = corpus_sttr(path, corpus_type, meta_fields, punc)
         corpus_name = os.path.basename(path)
         out_fn = 'sttr_' + corpus_name
         write_results(out_fn, r.copy(), g.copy())
-        print('Results for corpus \'{}\' written to \'{}.tsv\'.'.format(corpus_name, out_fn))
+        print('Corpus \'{}\' (remove_punc={}, cols={}) => \'{}.tsv\'.'.format(
+            corpus_name,
+            punc,
+            ','.join(g.columns.tolist()),
+            out_fn
+        ))
         g.insert(loc=1, column='corpus_name', value=corpus_name)
         results = results.append(r)
         ngroups = ngroups.append(g)
@@ -195,17 +201,16 @@ def main(args):
     corpora_paths = args.datadirs
     corpus_type = 'Tokenized' if args.tokenized else 'Plain'
     meta_fields = args.meta_fields.split(',')
-    corpora_merge(corpora_paths, corpus_type, args.output, meta_fields, args.remove_punctuation)
+    corpora_merge(corpora_paths, corpus_type, meta_fields, args.remove_punctuation)
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='calculates sttr')
-    parser.add_argument('output', type=str, help='name of file to write results to')
     parser.add_argument('datadirs', type=str, help='directory with data in csv files', nargs='+')
     parser.add_argument('--meta', default='brow', dest='meta_fields',
                         help='specify metadata fields in CSV to use as categorical features, optional, (default=\'brow\'); Format: specify as CSV string')
     parser.add_argument('-t', default=True, action='store_true', dest='tokenized',
                         help='use tokenized (instead of plain files), optional, (default=\'tokenized\')')
-    parser.add_argument('-p', default=False, action='store_true', dest='remove_punctuation',
-                        help='remove punctuation, optional, (default=\'False\')')
+    parser.add_argument('-p', default=True, action='store_true', dest='remove_punctuation',
+                        help='remove punctuation, optional, (default=\'True\')')
     main(parser.parse_args())
