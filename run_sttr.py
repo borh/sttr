@@ -128,6 +128,15 @@ def corpus_sttr(basedir, corpus_path, meta_fields, remove_punctuation):
     selected_columns = set(df_groups.columns.tolist()) & set(columns)
     df_groups = df_groups[list(selected_columns)]
 
+    if 'genre' in selected_columns:
+        def normalize_columns(s):
+            if s == 'novel':
+                return 'fiction'
+            else:
+                return s
+        df_groups['genre'] = df_groups['genre'].map(lambda s: s.lower())
+        df_groups['genre'] = df_groups['genre'].map(normalize_columns)
+
     # Sanity checks:
     filenames_set = set(filenames)
     groups_filenames = [os.path.join(basedir, corpus_path, filename)
