@@ -111,7 +111,7 @@ def calc_sttrs(filenames, winsize, remove_punctuation):
 
 def start_msg(args):
     print('Processing files in {}'.format(args.datadirs))
-    print('using {} files'.format('tokenized' if args.tokenized else 'plain'))
+    print('Using {} files'.format('tokenized' if args.tokenized else 'plain'))
 
 
 def corpus_sttr(basedir, corpus_path, meta_fields, remove_punctuation):
