@@ -34,11 +34,25 @@ ggplot(corpora %>% filter(!is.na(narrative_perspective)) %>% filter(window==500)
     facet_wrap(~ corpus_name, scales = 'free') +
     ggtitle('STTR per filename for window=500 (narrative perspective)')
 
+ggplot(corpora %>% filter(!is.na(year)) %>% filter(window==500),
+       aes(year, sttr, color = author)) +
+    geom_text(aes(label=filename)) +
+    facet_wrap(~ corpus_name, scales = 'free') +
+    ggtitle('STTR per filename by year for window=500 (color by author)')
+
 ggplot(corpora, aes(filename, sttr, color = brow)) +
     geom_pointrange(aes(ymax = sttr + ci, ymin = sttr - ci),
                     size = .1, fatten = .1, shape = 16) +
     facet_grid(window ~ corpus_name, scales = 'free') +
     theme(axis.text.x = element_text(angle = 90, hjust = 0, vjust = .5, size = 2)) +
     ggtitle('STTR with CI per filename')
+
+ggplot(corpora, aes(filename, sttr, color = brow)) +
+    geom_pointrange(aes(ymax = sttr + ci, ymin = sttr - ci),
+                    size = .1, fatten = .1, shape = 16) +
+    coord_flip() +
+    facet_grid(corpus_name ~ window, scales = 'free') +
+    ## theme(axis.text.y = element_text(angle = 90, hjust = 0, vjust = .5, size = 2)) +
+    ggtitle('STTR with CI per filename (inverted)')
 
 dev.off()
