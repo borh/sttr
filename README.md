@@ -42,7 +42,7 @@ Final results will be merged into `merged_results.tsv` in the current directory.
 ## Full example
 
 ```bash
-python run_sttr.py --meta 'author,genre,brow,narrative_perspective' ~/Dropbox/Complexity/Corpora/*
+python run_sttr.py --meta 'author,genre,brow,narrative_perspective,year' ~/Dropbox/Complexity/Corpora/*
 ```
 
 This will calculate STTR for every corpus directory under `~/Dropbox/Complexity/Corpora`. The `author,genre,brow,narrative_perspective` will be extracted from the `groups.csv` file as well and merged into the `merged_results.tsv` file at the end. Missing metadata is output as NA.
