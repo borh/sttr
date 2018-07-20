@@ -130,11 +130,13 @@ def corpus_sttr(basedir, corpus_path, meta_fields, remove_punctuation):
 
     if 'genre' in selected_columns:
         def normalize_columns(s):
+            if not isinstance(s, str):
+                return None
+            s = s.lower()
             if s == 'novel':
                 return 'fiction'
             else:
                 return s
-        df_groups['genre'] = df_groups['genre'].map(lambda s: s.lower())
         df_groups['genre'] = df_groups['genre'].map(normalize_columns)
 
     # Sanity checks:
