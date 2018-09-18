@@ -127,8 +127,13 @@ def corpus_sttr(basedir, corpus_path, meta_fields, remove_punctuation, field):
     if os.path.exists(os.path.join(basedir, 'metadata.csv')):
         metadata_file = os.path.join(basedir, 'metadata.csv')
     df_groups = pd.read_table(metadata_file, sep=None, engine='python')
-    df_groups.rename(columns={'idno': 'filename', 'textid': 'filename'},
-                     inplace=True)
+    df_groups.rename(
+        columns={
+            'idno': 'filename',
+            'textid': 'filename',
+            'pubyear-orig': 'year',
+            'supergenre': 'genre'
+        }, inplace=True)
     df_groups.rename(columns=lambda s: s.lower().replace('-', '_'),
                      inplace=True)
     selected_columns = set(df_groups.columns.tolist()) & set(columns)
