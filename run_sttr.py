@@ -6,6 +6,7 @@ import pandas as pd
 import re
 import argparse
 import glob
+import pprint
 
 
 def ttr(words):
@@ -149,20 +150,23 @@ def corpus_sttr(basedir, corpus_path, meta_fields, remove_punctuation):
         c = Counter(df_groups['filename'])
         raise ValueError('Error: Duplicate filename(s) detected in groups.csv: "{}". Aborting.'.format({filename for filename, freq in c.items() if freq >= 2}))
     if filenames_set != groups_filenames_set or len(df_groups) != len(filenames_set):
-        raise ValueError("Warning: groups.csv and filesystem contain differing information: {}\nOnly in groups.csv: {}\nOnly on filesystem: {}".format(
-            filenames_set ^ groups_filenames_set,
-            groups_filenames_set.difference(filenames_set),
-            filenames_set.difference(groups_filenames_set)
+        print('Only in', metadata_file, ':')
+        pprint.pprint(groups_filenames_set.difference(filenames_set))
+        print('Only on filesystem:')
+        pprint.pprint(filenames_set.difference(groups_filenames_set))
+        raise ValueError("Warning: {} and filesystem contain differing information.".format(
+            metadata_file,
+            # filenames_set ^ groups_filenames_set
         ))
 
     # calculate sttr for window size 10
-    df_results = calc_sttrs(groups_filenames, 10, remove_punctuation)
+    df_results = calc_sttrs(groups_filenames, 10, remove_punctuation, field)
     ngroups = df_groups.copy()
     ngroups.insert(loc=1, column='window', value=10)
 
     # repeat for 100...1000 winsize
     for i in range(100, 1001, 100):  # i: window size
-        r = calc_sttrs(groups_filenames, i, remove_punctuation)
+        r = calc_sttrs(groups_filenames, i, remove_punctuation, field)
         df_results = df_results.append(r)
         g = df_groups.copy()  # insert window size for merging
         g.insert(loc=1, column='window', value=i)
