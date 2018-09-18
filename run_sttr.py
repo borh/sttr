@@ -192,7 +192,7 @@ def corpora_merge(corpora_paths, corpus_type, meta_fields, remove_punctuation, f
         punc = False if re.search(r'japanese', path, re.I) else remove_punctuation
         r, g = corpus_sttr(path, corpus_type, meta_fields, punc, field)
         corpus_name = os.path.basename(path)
-        out_fn = 'sttr_' + corpus_name
+        out_fn = 'sttr_' + corpus_type + '_' + corpus_name
         write_results(out_fn + '_' + corpus_type, r.copy(), g.copy())
         print('Corpus \'{}\' (remove_punc={}, cols={}) => \'{}.tsv\'.'.format(
             corpus_name,
