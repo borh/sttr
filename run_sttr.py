@@ -140,6 +140,8 @@ def corpus_sttr(basedir, corpus_path, meta_fields, remove_punctuation):
                 return s
         df_groups['genre'] = df_groups['genre'].map(normalize_columns)
 
+    df_groups['filename'] = df_groups['filename'].map(lambda x: x if x.endswith('.txt') else x + '.txt')
+
     # Sanity checks:
     filenames_set = set(filenames)
     groups_filenames = [os.path.join(basedir, corpus_path, filename)
