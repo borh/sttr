@@ -55,13 +55,16 @@ def remove_punct(text):
     return re.sub(r'[^\w]', '', text)
 
 
-def read_txt(file, remove_punctuation):
+def read_txt(file, remove_punctuation, field=0):
     text = []
     with open(file, encoding='utf-8') as f:
         for line in f:
             token = line.rstrip()
             if token == '<EOS>' or token == '<PGB>':
                 continue
+
+            # Set correct field to extract (surface, POS, or lemma).
+            token = token.split('\t')[field]
 
             if remove_punctuation:
                 normalized_token = remove_punct(token)
@@ -90,7 +93,7 @@ def write_results(out_file, df_sttr, df_groups):
     df_result.to_csv(out_file, sep='\t', encoding='utf-8', index=True)
 
 
-def calc_sttrs(filenames, winsize, remove_punctuation):
+def calc_sttrs(filenames, winsize, remove_punctuation, field):
     '''
     calculate sttr for all files in filenames
     :param filenames: list of filenames
@@ -100,7 +103,7 @@ def calc_sttrs(filenames, winsize, remove_punctuation):
     sttr_results = []
     textlengths = []
     for file in filenames:
-        text, text_len = read_txt(file, remove_punctuation)
+        text, text_len = read_txt(file, remove_punctuation, field)
         sttr_results.append((os.path.split(file)[1],) + sttr(text, winsize=winsize))
         textlengths.append(text_len)
     df_sttr = pd.DataFrame(sttr_results)
@@ -112,16 +115,18 @@ def calc_sttrs(filenames, winsize, remove_punctuation):
 
 def start_msg(args):
     print('Processing files in {}'.format(args.datadirs))
-    print('Using {} files'.format('tokenized' if args.tokenized else 'plain'))
+    print('Using {} files'.format(args.type))
 
 
-def corpus_sttr(basedir, corpus_path, meta_fields, remove_punctuation):
+def corpus_sttr(basedir, corpus_path, meta_fields, remove_punctuation, field):
     filenames = sorted(glob.glob(os.path.join(basedir, corpus_path, '*.txt')))
     columns = ['filename'] + meta_fields
 
     # read metadata about text type
-    df_groups = pd.read_table(os.path.join(basedir, 'groups.csv'),
-                              sep=None, engine='python')
+    metadata_file = os.path.join(basedir, 'groups.csv')
+    if os.path.exists(os.path.join(basedir, 'metadata.csv')):
+        metadata_file = os.path.join(basedir, 'metadata.csv')
+    df_groups = pd.read_table(metadata_file, sep=None, engine='python')
     df_groups.rename(columns={'idno': 'filename', 'textid': 'filename'},
                      inplace=True)
     df_groups.rename(columns=lambda s: s.lower().replace('-', '_'),
@@ -176,14 +181,14 @@ def corpus_sttr(basedir, corpus_path, meta_fields, remove_punctuation):
     return df_results, ngroups
 
 
-def corpora_merge(corpora_paths, corpus_type, meta_fields, remove_punctuation):
+def corpora_merge(corpora_paths, corpus_type, meta_fields, remove_punctuation, field):
     results, ngroups = pd.DataFrame(), pd.DataFrame(columns=['filename'] + meta_fields)
     for path in corpora_paths:
         punc = False if re.search(r'japanese', path, re.I) else remove_punctuation
-        r, g = corpus_sttr(path, corpus_type, meta_fields, punc)
+        r, g = corpus_sttr(path, corpus_type, meta_fields, punc, field)
         corpus_name = os.path.basename(path)
         out_fn = 'sttr_' + corpus_name
-        write_results(out_fn, r.copy(), g.copy())
+        write_results(out_fn + '_' + corpus_type, r.copy(), g.copy())
         print('Corpus \'{}\' (remove_punc={}, cols={}) => \'{}.tsv\'.'.format(
             corpus_name,
             punc,
@@ -200,16 +205,16 @@ def corpora_merge(corpora_paths, corpus_type, meta_fields, remove_punctuation):
     results.reset_index(inplace=True, drop=True)
     ngroups.reset_index(inplace=True, drop=True)
 
-    write_results('merged_results', results, ngroups)
+    write_results('merged_results_' + corpus_type, results, ngroups)
 
 
 def main(args):
     start_msg(args)
 
     corpora_paths = args.datadirs
-    corpus_type = 'Tokenized' if args.tokenized else 'Plain'
+    corpus_type = args.type
     meta_fields = args.meta_fields.split(',')
-    corpora_merge(corpora_paths, corpus_type, meta_fields, args.remove_punctuation)
+    corpora_merge(corpora_paths, corpus_type, meta_fields, args.remove_punctuation, args.field)
 
 
 if __name__ == '__main__':
@@ -217,8 +222,10 @@ if __name__ == '__main__':
     parser.add_argument('datadirs', type=str, help='directory with data in csv files', nargs='+')
     parser.add_argument('--meta', default='brow', dest='meta_fields',
                         help='specify metadata fields in CSV to use as categorical features, optional, (default=\'brow\'); Format: specify as CSV string')
-    parser.add_argument('-t', default=True, action='store_true', dest='tokenized',
-                        help='use tokenized (instead of plain files), optional, (default=\'tokenized\')')
+    parser.add_argument('-t', default='Tokenized', action='store_true', dest='type',
+                        help='use Tokenized or POS etc. files (instead of plaintext files), optional, (default=\'Tokenized\')')
     parser.add_argument('-p', default=True, action='store_true', dest='remove_punctuation',
                         help='remove punctuation, optional, (default=\'True\')')
+    parser.add_argument('-f', default=0, action='store', type=int, dest='field',
+                        help='use field number, optional, (default=\'0\' (the first field))')
     main(parser.parse_args())
