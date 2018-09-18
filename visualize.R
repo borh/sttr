@@ -9,10 +9,15 @@ library(reshape2)
 ## Data
 corpora <- read_tsv('merged_results.tsv')
 
+## TODO: add t-score?
+## A simple yet robust approach could be to compute the difference between medians and then compute 95% confidence interval of such statistic with bootstrap (percentile). Such confidence interval would be adequate for inference. (https://stats.stackexchange.com/a/201710)
+##corpora$brow.t.score <- group_by(corpus + brow)
+
+
 ## Plots
 cairo_pdf('sttr-plots.pdf', onefile = TRUE, width = 16, heigh = 12)
 
-ggplot(corpora, aes(corpus_name, sttr, color = brow)) +
+ggplot(corpora %>% filter(window>=500), aes(corpus_name, sttr, color = brow)) +
     geom_boxplot() +
     facet_grid(window ~ corpus_name, scales = 'free') +
     ggtitle('STTR faceted by windows size and corpus')
