@@ -334,7 +334,7 @@ def corpora_merge(corpora_paths, corpus_types, meta_fields, remove_punctuation, 
     results.reset_index(inplace=True, drop=True)
     ngroups.reset_index(inplace=True, drop=True)
 
-    write_results('merged_results_' + '_'.join(set(g['Corpus_name'])), results, ngroups)
+    write_results('merged_results_' + '+'.join(ngroups['Corpus_name'].unique()), results, ngroups)
 
 
 def main(args):
