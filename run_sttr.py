@@ -126,7 +126,7 @@ def corpus_sttr(basedir, corpus_path, meta_fields, remove_punctuation, field):
     metadata_file = os.path.join(basedir, 'groups.csv')
     if os.path.exists(os.path.join(basedir, 'metadata.csv')):
         metadata_file = os.path.join(basedir, 'metadata.csv')
-    df_groups = pd.read_table(metadata_file, sep=None, engine='python')
+    df_groups = pd.read_csv(metadata_file, sep=None, engine='python')
     df_groups.rename(
         columns={
             'idno': 'filename',
