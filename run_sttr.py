@@ -182,7 +182,7 @@ def corpus_sttr(basedir, corpus_path, meta_fields, remove_punctuation, field):
         df_results = df_results.append(r)
         g = df_groups.copy()  # insert window size for merging
         g.insert(loc=1, column='window', value=i)
-        ngroups = ngroups.append(g)
+        ngroups = ngroups.append(g, sort=True)
     return df_results, ngroups
 
 
@@ -202,7 +202,7 @@ def corpora_merge(corpora_paths, corpus_type, meta_fields, remove_punctuation, f
         ))
         g.insert(loc=1, column='corpus_name', value=corpus_name)
         results = results.append(r)
-        ngroups = ngroups.append(g)
+        ngroups = ngroups.append(g, sort=True)
 
     if len(corpora_paths) == 1:
         return
