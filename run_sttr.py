@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import pandas as pd
 import math
-from statistics import mean, stdev
+from statistics import mean, stdev, StatisticsError
 import os
 import glob
 from pathlib import Path
@@ -112,8 +112,13 @@ def read_txt(file, remove_punctuation, field=0, is_tokens=True):
         sentence_mean = None
         sentence_sd = None
     else:
-        sentence_mean = mean(sentence_lengths)
-        sentence_sd = stdev(sentence_lengths)
+        try:
+            sentence_mean = mean(sentence_lengths)
+            sentence_sd = stdev(sentence_lengths)
+        except StatisticsError:
+            print('Warning: Cannot calculate mean and stdev of sentence length since EOS annotations are not present in \'{}\''.format(file))
+            sentence_mean = None
+            sentence_sd = None
 
     return text, len(text), sentence_mean, sentence_sd
 
