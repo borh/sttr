@@ -214,7 +214,8 @@ def get_data(corpus_path, meta_fields, metadata_file):
             'idno': 'Filename',
             'textid': 'Filename',
             'pubyear-orig': 'Year',
-            'supergenre': 'Genre'
+            'supergenre': 'Genre',
+            'group': 'Brow',
         }, inplace=True)
     df_groups.columns = df_groups.columns.str.capitalize().str.replace('-', '_')
     # df_groups.rename(columns=lambda s: s.lower().replace('-', '_'),
