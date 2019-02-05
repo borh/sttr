@@ -130,13 +130,14 @@ def write_results(out_file, df_sttr, df_groups):
 
     df_groups.reset_index(inplace=True, drop=True)
     df_sttr.reset_index(inplace=True, drop=True)
-    df_result = df_sttr.merge(df_groups, on=['filename', 'window'], how='inner',
-                              left_index=True, right_index=True, sort=False)
-    df_result.set_index('filename', inplace=True)
+    df_result = df_sttr.merge(df_groups, on=['Corpus_name', 'Filename', 'Window', 'Type'],
+                              how='inner', left_index=True, right_index=True,
+                              sort=False)
+    df_result.set_index('Filename', inplace=True)
     df_result.to_csv(out_file, sep='\t', encoding='utf-8', index=True)
 
 
-def calc_sttrs(filenames, winsize, remove_punctuation, field):
+def calculate_measures(filenames, winsize, remove_punctuation, field, is_tokens=True):
     '''
     calculate sttr for all files in filenames
     :param filenames: list of filenames
@@ -144,41 +145,75 @@ def calc_sttrs(filenames, winsize, remove_punctuation, field):
     :return: pandas df with results
     '''
     sttr_results = []
-    textlengths = []
+    text_lengths = []
+    sentence_means = []
+    sentence_sds = []
+    yules_ks = []
     for file in filenames:
-        text, text_len = read_txt(file, remove_punctuation, field)
+        text, text_len, sentence_length_mean, sentence_length_sd = read_txt(
+            file, remove_punctuation, field, is_tokens
+        )
+        yules_ks.append(yule_k(text))
         sttr_results.append((os.path.split(file)[1],) + sttr(text, winsize=winsize))
-        textlengths.append(text_len)
+        text_lengths.append(text_len)
+        sentence_means.append(sentence_length_mean)
+        sentence_sds.append(sentence_length_sd)
     df_sttr = pd.DataFrame(sttr_results)
-    df_sttr.columns = ['filename', 'sttr', 'ci', 'sd']
-    df_sttr.insert(loc=1, column='window', value=[winsize]*len(filenames))
-    df_sttr.insert(loc=2, column='text_length', value=textlengths)
+    df_sttr.columns = ['Filename', 'STTR', 'STTR_CI', 'STTR_SD']
+    df_sttr.insert(loc=1, column='Yules_K', value=yules_ks)
+
+    if is_tokens:
+        # These would make no sense for trigrams:
+        df_sttr.insert(loc=3, column='Text_length', value=text_lengths)
+        df_sttr.insert(loc=4, column='Sent_len_mean', value=sentence_means)
+        df_sttr.insert(loc=5, column='Sent_len_sd', value=sentence_sds)
+        df_sttr.insert(loc=6, column='Window', value=[winsize]*len(filenames))
+    else:
+        df_sttr.insert(loc=2, column='Window', value=[winsize]*len(filenames))
     return df_sttr
 
 
 def start_msg(args):
-    print('Processing files in {}'.format(args.datadirs))
-    print('Using {} files'.format(args.type))
+    print('Processing folder types\n{}\nfor corpora under\n{}'.format(
+        pprint.pformat(args.types),
+        pprint.pformat(args.datadirs)
+    ))
 
 
-def corpus_sttr(basedir, corpus_path, meta_fields, remove_punctuation, field):
-    filenames = sorted(glob.glob(os.path.join(basedir, corpus_path, '*.txt')))
-    columns = ['filename'] + meta_fields
+def find_metadata(dir):
+    metadata_file = os.path.join(dir, 'groups.csv')
+    if not os.path.exists(metadata_file):
+        metadata_file = os.path.join(dir, 'metadata.csv')
+        if not os.path.exists(metadata_file):
+            # print('No "groups.csv" or "metadata.csv" file found at path "{}"'.format(dir))
+            return None
+    return metadata_file
 
-    # read metadata about text type
-    metadata_file = os.path.join(basedir, 'groups.csv')
-    if os.path.exists(os.path.join(basedir, 'metadata.csv')):
-        metadata_file = os.path.join(basedir, 'metadata.csv')
+
+def find_corpora(basedir):
+    for root, dirs, files in os.walk(basedir, followlinks=True):
+        for dir in [root] + dirs:
+            maybe_dir = os.path.join(root, dir)
+            metadata_file = find_metadata(maybe_dir)
+            if metadata_file:
+                yield maybe_dir, metadata_file
+
+
+def get_data(corpus_path, meta_fields, metadata_file):
+    filenames = sorted(glob.glob(os.path.join(corpus_path, '*.txt')))
+    columns = ['Filename'] + meta_fields
+
     df_groups = pd.read_csv(metadata_file, sep=None, engine='python')
     df_groups.rename(
         columns={
-            'idno': 'filename',
-            'textid': 'filename',
-            'pubyear-orig': 'year',
-            'supergenre': 'genre'
+            'idno': 'Filename',
+            'textid': 'Filename',
+            'pubyear-orig': 'Year',
+            'supergenre': 'Genre'
         }, inplace=True)
-    df_groups.rename(columns=lambda s: s.lower().replace('-', '_'),
-                     inplace=True)
+    df_groups.columns = df_groups.columns.str.capitalize().str.replace('-', '_')
+    # df_groups.rename(columns=lambda s: s.lower().replace('-', '_'),
+    #                  inplace=True)
     selected_columns = set(df_groups.columns.tolist()) & set(columns)
     df_groups = df_groups[list(selected_columns)]
 
@@ -191,89 +226,134 @@ def corpus_sttr(basedir, corpus_path, meta_fields, remove_punctuation, field):
                 return 'fiction'
             else:
                 return s
-        df_groups['genre'] = df_groups['genre'].map(normalize_columns)
+        df_groups['Genre'] = df_groups['Genre'].map(normalize_columns)
 
-    df_groups['filename'] = df_groups['filename'].map(lambda x: x if x.endswith('.txt') else x + '.txt')
+    df_groups['Filename'] = df_groups['Filename'].map(lambda x: x if x.endswith('.txt') else x + '.txt')
 
     # Sanity checks:
     filenames_set = set(filenames)
-    groups_filenames = [os.path.join(basedir, corpus_path, filename)
-                        for filename in df_groups['filename']]
+    groups_filenames = [os.path.join(corpus_path, filename)
+                        for filename in df_groups['Filename']]
     groups_filenames_set = set(groups_filenames)
-    if len(df_groups['filename']) != len(groups_filenames_set):
+
+    if not filenames_set:
+        print('No files for folder type {}, skipping...'.format(Path(corpus_path).name))
+        return None
+
+    if len(df_groups['Filename']) != len(groups_filenames_set):
         from collections import Counter
-        c = Counter(df_groups['filename'])
+        c = Counter(df_groups['Filename'])
         raise ValueError('Error: Duplicate filename(s) detected in groups.csv: "{}". Aborting.'.format({filename for filename, freq in c.items() if freq >= 2}))
+
     if filenames_set != groups_filenames_set or len(df_groups) != len(filenames_set):
-        print('Only in', metadata_file, ':')
-        pprint.pprint(groups_filenames_set.difference(filenames_set))
+        print('Warning: "{}" and filesystem contain differing information, skipping...'.format(metadata_file))
+        print('Only in "{}":'.format(metadata_file))
+        pprint.pprint(compact_format_files(groups_filenames_set.difference(filenames_set)))
         print('Only on filesystem:')
-        pprint.pprint(filenames_set.difference(groups_filenames_set))
-        raise ValueError("Warning: {} and filesystem contain differing information.".format(
-            metadata_file,
-            # filenames_set ^ groups_filenames_set
-        ))
+        pprint.pprint(compact_format_files(filenames_set.difference(groups_filenames_set)))
+        return None
+
+    print('Processing folder type {}.'.format(Path(corpus_path).name))
+    return groups_filenames, df_groups
+
+
+def corpus_measures(groups_filenames, df_groups, remove_punctuation, field, check_only, is_tokens):
+    if check_only:
+        return None
 
     # calculate sttr for window size 10
-    df_results = calc_sttrs(groups_filenames, 10, remove_punctuation, field)
+    df_results = calculate_measures(groups_filenames, 10, remove_punctuation, field, is_tokens)
     ngroups = df_groups.copy()
-    ngroups.insert(loc=1, column='window', value=10)
+    ngroups.insert(loc=1, column='Window', value=10)
 
     # repeat for 100...1000 winsize
     for i in range(100, 1001, 100):  # i: window size
-        r = calc_sttrs(groups_filenames, i, remove_punctuation, field)
+        r = calculate_measures(groups_filenames, i, remove_punctuation, field, is_tokens)
         df_results = df_results.append(r)
         g = df_groups.copy()  # insert window size for merging
-        g.insert(loc=1, column='window', value=i)
+        g.insert(loc=1, column='Window', value=i)
         ngroups = ngroups.append(g, sort=True)
     return df_results, ngroups
 
 
-def corpora_merge(corpora_paths, corpus_type, meta_fields, remove_punctuation, field):
-    results, ngroups = pd.DataFrame(), pd.DataFrame(columns=['filename'] + meta_fields)
-    for path in corpora_paths:
-        punc = False if re.search(r'japanese', path, re.I) else remove_punctuation
-        r, g = corpus_sttr(path, corpus_type, meta_fields, punc, field)
-        corpus_name = os.path.basename(path)
-        out_fn = 'sttr_' + corpus_type + '_' + corpus_name
-        write_results(out_fn + '_' + corpus_type, r.copy(), g.copy())
-        print('Corpus \'{}\' (remove_punc={}, cols={}) => \'{}.tsv\'.'.format(
-            corpus_name,
-            punc,
-            ','.join(g.columns.tolist()),
-            out_fn
-        ))
-        g.insert(loc=1, column='corpus_name', value=corpus_name)
-        results = results.append(r)
-        ngroups = ngroups.append(g, sort=True)
+def corpora_merge(corpora_paths, corpus_types, meta_fields, remove_punctuation, field, check_only):
+    results, ngroups = pd.DataFrame(), pd.DataFrame(columns=['Filename', 'Corpus_name', 'Type'] + meta_fields)
 
-    if len(corpora_paths) == 1:
-        return
+    for path, metadata_file in chain.from_iterable(map(find_corpora, corpora_paths)):
+        print('{}\nUsing metadata file {}'.format('='*80, metadata_file))
+
+        for corpus_type in corpus_types:
+            tokens_path = os.path.join(path, corpus_type)
+
+            data = get_data(tokens_path, meta_fields, metadata_file)
+
+            if data:
+                groups_filenames, df_groups = data
+            else:
+                continue
+
+            punc = False if re.search(r'japanese', path, re.I) else remove_punctuation
+            is_tokens = False if corpus_type.endswith('Tri') else True
+
+            measures_data = corpus_measures(groups_filenames, df_groups, punc, field, check_only,
+                                            is_tokens=is_tokens)
+            if check_only:
+                continue
+            else:
+                r, g = measures_data
+
+            corpus_name = os.path.basename(path)
+            g.insert(loc=1, column='Corpus_name', value=corpus_name)
+            g.insert(loc=2, column='Type', value=corpus_type)
+            r.insert(loc=1, column='Corpus_name', value=corpus_name)
+            r.insert(loc=2, column='Type', value=corpus_type)
+            out_fn = 'results_' + corpus_name + '_' + corpus_type
+            write_results(out_fn, r.copy(), g.copy())
+            print('Corpus \'{}\', folder type \'{}\' (remove_punc={}, cols={}) => \'{}.tsv\'.'.format(
+                corpus_name,
+                corpus_type,
+                punc,
+                ','.join(g.columns.tolist()),
+                out_fn
+            ))
+
+            # TODO
+            # if not is_tokens:
+            #     results.insert(loc=3, column='Text_length', value=)
+            #     results.insert(loc=4, column='Sent_len_mean', value=)
+            #     results.insert(loc=5, column='Sent_len_sd', value=)
+            results = results.append(r, sort=True)
+            ngroups = ngroups.append(g, sort=True)
 
     results.reset_index(inplace=True, drop=True)
     ngroups.reset_index(inplace=True, drop=True)
 
-    write_results('merged_results_' + corpus_type, results, ngroups)
+    write_results('merged_results_' + '_'.join(set(g['Corpus_name'])), results, ngroups)
 
 
 def main(args):
+    args.types = args.types.split(',')
     start_msg(args)
 
     corpora_paths = args.datadirs
-    corpus_type = args.type
-    meta_fields = args.meta_fields.split(',')
-    corpora_merge(corpora_paths, corpus_type, meta_fields, args.remove_punctuation, args.field)
+    corpus_types = args.types
+    meta_fields = list(map(lambda s: s.capitalize(), args.meta_fields.split(',')))
+    corpora_merge(corpora_paths, corpus_types, meta_fields,
+                  args.remove_punctuation, args.field, args.check_only)
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='calculates sttr')
     parser.add_argument('datadirs', type=str, help='directory with data in csv files', nargs='+')
-    parser.add_argument('--meta', default='brow', dest='meta_fields',
-                        help='specify metadata fields in CSV to use as categorical features, optional, (default=\'brow\'); Format: specify as CSV string')
-    parser.add_argument('-t', default='Tokenized', action='store_true', dest='type',
-                        help='use Tokenized or POS etc. files (instead of plaintext files), optional, (default=\'Tokenized\')')
+    parser.add_argument('--check-only', default=False, action='store_true', dest='check_only',
+                        help='do a pass through all specified corpus directories to make sure they conform to project standards')
+    parser.add_argument('--meta', default='Brow', dest='meta_fields',
+                        help='specify metadata fields in CSV to use as categorical features, optional, (default=\'Brow\'); Format: specify as CSV string')
+    parser.add_argument('-t', default='Tokenized,Lemmatized,POS,POS_Tri,UniversalPOS,UniversalPOS_Tri',
+                        dest='types',
+                        help='specify folders to use (Tokenized or POS etc.), optional, (default=\'Tokenized,Lemmatized,POS,POS_Tri,UniversalPOS,UniversalPOS_Tri\')')
     parser.add_argument('-p', default=True, action='store_true', dest='remove_punctuation',
                         help='remove punctuation, optional, (default=\'True\')')
     parser.add_argument('-f', default=0, action='store', type=int, dest='field',
-                        help='use field number, optional, (default=\'0\' (the first field))')
+                        help='use delimited field number to extract chosen unit (token/POS/lemma/...), optional, (default=\'0\' (the first field))')
     main(parser.parse_args())
