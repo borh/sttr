@@ -357,8 +357,8 @@ if __name__ == '__main__':
     parser.add_argument('-t', default='Tokenized,Lemmatized,POS,POS_Tri,UniversalPOS,UniversalPOS_Tri',
                         dest='types',
                         help='specify folders to use (Tokenized or POS etc.), optional, (default=\'Tokenized,Lemmatized,POS,POS_Tri,UniversalPOS,UniversalPOS_Tri\')')
-    parser.add_argument('-p', default=True, action='store_true', dest='remove_punctuation',
-                        help='remove punctuation, optional, (default=\'True\')')
+    parser.add_argument('-p', default=False, action='store_true', dest='remove_punctuation',
+                        help='remove punctuation, optional, (default=\'False\')')
     parser.add_argument('-f', default=0, action='store', type=int, dest='field',
                         help='use delimited field number to extract chosen unit (token/POS/lemma/...), optional, (default=\'0\' (the first field))')
     main(parser.parse_args())
