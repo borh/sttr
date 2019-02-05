@@ -1,12 +1,22 @@
 #!/usr/bin/env python
-import math
-import statistics
-import os
 import pandas as pd
+import math
+from statistics import mean, stdev
+import os
+import glob
+from pathlib import Path
 import re
 import argparse
-import glob
 import pprint
+from collections import Counter
+from itertools import chain
+
+
+def compact_format_files(files):
+    if not files:
+        return None
+    basedir = Path(list(files)[0]).parent
+    return (basedir, [Path(file).name for file in files])
 
 
 def ttr(words):
@@ -24,7 +34,7 @@ def sttr_ci(results):
     :param results: standardized type token ratio for a list of words
     :return:  float with confidence interval
     '''
-    return 1.96 * statistics.stdev(results) / math.sqrt(len(results))
+    return 1.96 * stdev(results) / math.sqrt(len(results))
 
 
 def sttr(wordlist, winsize, ci=True):
@@ -38,12 +48,23 @@ def sttr(wordlist, winsize, ci=True):
     for i in range(int(len(wordlist)/winsize)):
         results.append(ttr(wordlist[i*winsize:(i*winsize)+winsize]))
     if not ci:
-        return statistics.mean(results)
+        return mean(results)
     else:
-        r = statistics.mean(results)
+        r = mean(results)
         ci = sttr_ci(results)
-        sd = statistics.stdev(results)
+        sd = stdev(results)
         return r, ci, sd
+
+
+def yule_k_(text_length, frequency_spectrum):
+    '''Yule (1944)'''
+    return 10000 * (sum((freq_size * (freq / text_length) ** 2 for freq, freq_size in frequency_spectrum.items())) - (1 / text_length))
+
+
+def yule_k(wordlist):
+    counter = Counter(wordlist)
+    freq_spect = Counter(counter.values())
+    return yule_k_(len(wordlist), freq_spect)
 
 
 def remove_punct(text):
@@ -55,24 +76,46 @@ def remove_punct(text):
     return re.sub(r'[^\w]', '', text)
 
 
-def read_txt(file, remove_punctuation, field=0):
+def sentence_iter(xs, remove_punctuation, field):
+    sentence = []
+    for line in xs:
+        token = line.rstrip()
+        if token == '<EOS>' or token == '<PGB>':
+            # Discard empty sentences (i.e. <EOS> followed by <PGB>)
+            if sentence:
+                yield sentence
+            sentence = []
+            continue
+
+        # Set correct field to extract (surface, POS, or lemma).
+        token = token.split('\t')[field]
+
+        if remove_punctuation:
+            normalized_token = remove_punct(token)
+            if normalized_token != '':
+                sentence.append(normalized_token)
+        else:
+            sentence.append(token)
+    if sentence:
+        yield sentence
+
+
+def read_txt(file, remove_punctuation, field=0, is_tokens=True):
     text = []
+    sentence_lengths = []
     with open(file, encoding='utf-8') as f:
-        for line in f:
-            token = line.rstrip()
-            if token == '<EOS>' or token == '<PGB>':
-                continue
+        for sentence in sentence_iter(f, remove_punctuation, field):
+            sentence_lengths.append(len(sentence))
+            text.extend(sentence)
 
-            # Set correct field to extract (surface, POS, or lemma).
-            token = token.split('\t')[field]
+    if not is_tokens:
+        sentence_mean = None
+        sentence_sd = None
+    else:
+        sentence_mean = mean(sentence_lengths)
+        sentence_sd = stdev(sentence_lengths)
 
-            if remove_punctuation:
-                normalized_token = remove_punct(token)
-                if normalized_token != '':
-                    text.append(normalized_token)
-            else:
-                text.append(token)
-    return text, len(text)
+    return text, len(text), sentence_mean, sentence_sd
 
 
 def write_results(out_file, df_sttr, df_groups):
