@@ -2,6 +2,7 @@
 import pandas as pd
 import math
 from statistics import mean, stdev, StatisticsError
+from unicodedata import normalize
 import os
 import glob
 from pathlib import Path
@@ -205,7 +206,8 @@ def find_corpora(basedir):
 
 
 def get_data(corpus_path, meta_fields, metadata_file):
-    filenames = sorted(glob.glob(os.path.join(corpus_path, '*.txt')))
+    filenames = sorted([normalize('NFKC', fname)
+                        for fname in glob.glob(os.path.join(corpus_path, '*.txt'))])
     columns = ['Filename'] + meta_fields
 
     df_groups = pd.read_csv(metadata_file, sep=None, engine='python')
@@ -234,7 +236,7 @@ def get_data(corpus_path, meta_fields, metadata_file):
                 return s
         df_groups['Genre'] = df_groups['Genre'].map(normalize_columns)
 
-    df_groups['Filename'] = df_groups['Filename'].map(lambda x: x if x.endswith('.txt') else x + '.txt')
+    df_groups['Filename'] = df_groups['Filename'].map(lambda x: normalize('NFKC', x)).map(lambda x: x if x.endswith('.txt') else x + '.txt')
 
     # Sanity checks:
     filenames_set = set(filenames)
