@@ -184,9 +184,10 @@ def calculate_measures(filenames, winsize, remove_punctuation, field, is_tokens=
 
 
 def start_msg(args):
-    print('Processing folder types\n{}\nfor corpora under\n{}'.format(
+    print('Processing folder types\n{}\nfor corpora under\n{}\nusing windows sizes: {}.'.format(
         pprint.pformat(args.types),
-        pprint.pformat(args.datadirs)
+        pprint.pformat(args.datadirs),
+        list(range(args.min_window, args.max_window+1, 100))
     ))
 
 
@@ -269,17 +270,18 @@ def get_data(corpus_path, meta_fields, metadata_file):
     return groups_filenames, df_groups
 
 
-def corpus_measures(groups_filenames, df_groups, remove_punctuation, field, check_only, is_tokens):
+def corpus_measures(groups_filenames, df_groups, remove_punctuation, field,
+                    min_window, max_window, check_only, is_tokens):
     if check_only:
         return None
 
-    # calculate sttr for window size 10
-    df_results = calculate_measures(groups_filenames, 10, remove_punctuation, field, is_tokens)
+    # calculate sttr for window size 500
+    df_results = calculate_measures(groups_filenames, min_window, remove_punctuation, field, is_tokens)
     ngroups = df_groups.copy()
-    ngroups.insert(loc=1, column='Window', value=10)
+    ngroups.insert(loc=1, column='Window', value=500)
 
-    # repeat for 100...1000 winsize
-    for i in range(100, 1001, 100):  # i: window size
+    # repeat for 600...1000 winsize
+    for i in range(min_window+100, max_window+1, 100):  # i: window size
         r = calculate_measures(groups_filenames, i, remove_punctuation, field, is_tokens)
         df_results = df_results.append(r)
         g = df_groups.copy()  # insert window size for merging
@@ -288,7 +290,8 @@ def corpus_measures(groups_filenames, df_groups, remove_punctuation, field, chec
     return df_results, ngroups
 
 
-def corpora_merge(corpora_paths, corpus_types, meta_fields, remove_punctuation, field, check_only):
+def corpora_merge(corpora_paths, corpus_types, meta_fields, remove_punctuation, field,
+                  min_window, max_window, check_only):
     results, ngroups = pd.DataFrame(), pd.DataFrame(columns=['Filename', 'Corpus_name', 'Type'] + meta_fields)
 
     for path, metadata_file in chain.from_iterable(map(find_corpora, corpora_paths)):
@@ -307,7 +310,8 @@ def corpora_merge(corpora_paths, corpus_types, meta_fields, remove_punctuation, 
             punc = False if re.search(r'japanese', path, re.I) else remove_punctuation
             is_tokens = False if corpus_type.endswith('Tri') else True
 
-            measures_data = corpus_measures(groups_filenames, df_groups, punc, field, check_only,
+            measures_data = corpus_measures(groups_filenames, df_groups, punc, field,
+                                            min_window, max_window, check_only,
                                             is_tokens=is_tokens)
             if check_only:
                 continue
@@ -353,7 +357,8 @@ def main(args):
     corpus_types = args.types
     meta_fields = list(map(lambda s: s.capitalize(), args.meta_fields.split(',')))
     corpora_merge(corpora_paths, corpus_types, meta_fields,
-                  args.remove_punctuation, args.field, args.check_only)
+                  args.remove_punctuation, args.field,
+                  args.min_window, args.max_window, args.check_only)
 
 
 if __name__ == '__main__':
@@ -370,4 +375,8 @@ if __name__ == '__main__':
                         help='remove punctuation, optional, (default=\'False\')')
     parser.add_argument('-f', default=0, action='store', type=int, dest='field',
                         help='use delimited field number to extract chosen unit (token/POS/lemma/...), optional, (default=\'0\' (the first field))')
+    parser.add_argument('--maxwin', default=1000, action='store', type=int, dest='max_window',
+                        help='maximum window size, optional, (default=\'1000\')')
+    parser.add_argument('--minwin', default=500, action='store', type=int, dest='min_window',
+                        help='minimum window size, optional, (default=\'500\')')
     main(parser.parse_args())
