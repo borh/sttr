@@ -316,7 +316,8 @@ def corpora_merge(corpora_paths, corpus_types, meta_fields, remove_punctuation, 
             r.insert(loc=1, column='Corpus_name', value=corpus_name)
             r.insert(loc=2, column='Type', value=corpus_type)
             out_fn = 'results_' + corpus_name + '_' + corpus_type
-            write_results(out_fn, r.copy(), g.copy())
+            if not check_only:
+                write_results(out_fn, r.copy(), g.copy())
             print('Corpus \'{}\', folder type \'{}\' (remove_punc={}, cols={}) => \'{}.tsv\'.'.format(
                 corpus_name,
                 corpus_type,
@@ -336,7 +337,8 @@ def corpora_merge(corpora_paths, corpus_types, meta_fields, remove_punctuation, 
     results.reset_index(inplace=True, drop=True)
     ngroups.reset_index(inplace=True, drop=True)
 
-    write_results('merged_results_' + '+'.join(ngroups['Corpus_name'].unique()), results, ngroups)
+    if not check_only:
+        write_results('merged_results_' + '+'.join(ngroups['Corpus_name'].unique()), results, ngroups)
 
 
 def main(args):
