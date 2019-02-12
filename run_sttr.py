@@ -294,7 +294,8 @@ def corpora_merge(corpora_paths, corpus_types, meta_fields, remove_punctuation, 
                   min_window, max_window, check_only):
     results, ngroups = pd.DataFrame(), pd.DataFrame(columns=['Filename', 'Corpus_name', 'Type'] + meta_fields)
 
-    for path, metadata_file in chain.from_iterable(map(find_corpora, corpora_paths)):
+    corpora = set(chain.from_iterable(map(find_corpora, corpora_paths)))
+    for path, metadata_file in corpora:
         print('{}\nUsing metadata file {}'.format('='*80, metadata_file))
 
         for corpus_type in corpus_types:
