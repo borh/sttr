@@ -128,15 +128,19 @@ def read_txt(file, remove_punctuation, field=0, is_tokens=True):
     return text, len(text), sentence_mean, sentence_sd
 
 
-def write_results(out_file, df_sttr, df_groups):
+def write_results(out_file, path, df_sttr, df_groups):
     '''
     write results to csv file
     :param out_file: filename
     :param df_sttr: pandas df with all results
     :param df_groups: metadata about text type
     '''
+    Path(path).mkdir(parents=True, exist_ok=True)
+
     if not out_file.endswith('tsv'):
         out_file = out_file + '.tsv'
+
+    out_path = Path(path).joinpath(out_file)
 
     df_groups.reset_index(inplace=True, drop=True)
     df_sttr.reset_index(inplace=True, drop=True)
@@ -144,7 +148,7 @@ def write_results(out_file, df_sttr, df_groups):
                               how='inner', left_index=True, right_index=True,
                               sort=False)
     df_result.set_index('Filename', inplace=True)
-    df_result.to_csv(out_file, sep='\t', encoding='utf-8', index=True)
+    df_result.to_csv(out_path, sep='\t', encoding='utf-8', index=True)
 
 
 def calculate_measures(filenames, winsize, remove_punctuation, field, is_tokens=True):
@@ -290,7 +294,7 @@ def corpus_measures(groups_filenames, df_groups, remove_punctuation, field,
     return df_results, ngroups
 
 
-def corpora_merge(corpora_paths, corpus_types, meta_fields, remove_punctuation, field,
+def corpora_merge(corpora_paths, corpus_types, out, meta_fields, remove_punctuation, field,
                   min_window, max_window, check_only):
     results, ngroups = pd.DataFrame(), pd.DataFrame(columns=['Filename', 'Corpus_name', 'Type'] + meta_fields)
 
@@ -326,12 +330,13 @@ def corpora_merge(corpora_paths, corpus_types, meta_fields, remove_punctuation, 
             r.insert(loc=2, column='Type', value=corpus_type)
             out_fn = 'results_' + corpus_name + '_' + corpus_type
             if not check_only:
-                write_results(out_fn, r.copy(), g.copy())
-            print('Corpus \'{}\', folder type \'{}\' (remove_punc={}, cols={}) => \'{}.tsv\'.'.format(
+                write_results(out_fn, out, r.copy(), g.copy())
+            print('Corpus \'{}\', folder type \'{}\' (remove_punc={}, cols={}) => \'{}/{}.tsv\'.'.format(
                 corpus_name,
                 corpus_type,
                 punc,
                 ','.join(g.columns.tolist()),
+                out,
                 out_fn
             ))
 
@@ -347,7 +352,7 @@ def corpora_merge(corpora_paths, corpus_types, meta_fields, remove_punctuation, 
     ngroups.reset_index(inplace=True, drop=True)
 
     if not check_only:
-        write_results('merged_results_' + '+'.join(ngroups['Corpus_name'].unique()), results, ngroups)
+        write_results('merged_results_' + '+'.join(ngroups['Corpus_name'].unique()), out, results, ngroups)
 
 
 def main(args):
@@ -357,7 +362,7 @@ def main(args):
     corpora_paths = args.datadirs
     corpus_types = args.types
     meta_fields = list(map(lambda s: s.capitalize(), args.meta_fields.split(',')))
-    corpora_merge(corpora_paths, corpus_types, meta_fields,
+    corpora_merge(corpora_paths, corpus_types, args.out, meta_fields,
                   args.remove_punctuation, args.field,
                   args.min_window, args.max_window, args.check_only)
 
@@ -365,16 +370,18 @@ def main(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='calculates sttr')
     parser.add_argument('datadirs', type=str, help='directory with data in csv files', nargs='+')
-    parser.add_argument('--check-only', default=False, action='store_true', dest='check_only',
+    parser.add_argument('-o', '--out', default='./', dest='out',
+                        help='specify output directory for results files, optional, (default=\'./\'--teh current directory)')
+    parser.add_argument('-c', '--check-only', default=False, action='store_true', dest='check_only',
                         help='do a pass through all specified corpus directories to make sure they conform to project standards')
-    parser.add_argument('--meta', default='Brow', dest='meta_fields',
+    parser.add_argument('-m', '--meta', default='Brow', dest='meta_fields',
                         help='specify metadata fields in CSV to use as categorical features, optional, (default=\'Brow\'); Format: specify as CSV string')
-    parser.add_argument('-t', default='Tokenized,Lemmatized,POS,POS_Tri,UniversalPOS,UniversalPOS_Tri',
+    parser.add_argument('-t', '--types', default='Tokenized,Lemmatized,POS,POS_Tri,UniversalPOS,UniversalPOS_Tri',
                         dest='types',
                         help='specify folders to use (Tokenized or POS etc.), optional, (default=\'Tokenized,Lemmatized,POS,POS_Tri,UniversalPOS,UniversalPOS_Tri\')')
-    parser.add_argument('-p', default=False, action='store_true', dest='remove_punctuation',
+    parser.add_argument('-p', '--remove-punctuation', default=False, action='store_true', dest='remove_punctuation',
                         help='remove punctuation, optional, (default=\'False\')')
-    parser.add_argument('-f', default=0, action='store', type=int, dest='field',
+    parser.add_argument('-f', '--field', default=0, action='store', type=int, dest='field',
                         help='use delimited field number to extract chosen unit (token/POS/lemma/...), optional, (default=\'0\' (the first field))')
     parser.add_argument('--maxwin', default=1000, action='store', type=int, dest='max_window',
                         help='maximum window size, optional, (default=\'1000\')')
