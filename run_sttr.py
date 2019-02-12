@@ -211,7 +211,7 @@ def find_corpora(basedir):
 
 
 def get_data(corpus_path, meta_fields, metadata_file):
-    filenames = sorted([normalize('NFKC', fname) if PLATFORM_MACOS else fname
+    filenames = sorted([normalize('NFC', fname) if PLATFORM_MACOS else fname
                         for fname in glob.glob(os.path.join(corpus_path, '*.txt'))])
     columns = ['Filename'] + meta_fields
 
@@ -241,7 +241,7 @@ def get_data(corpus_path, meta_fields, metadata_file):
                 return s
         df_groups['Genre'] = df_groups['Genre'].map(normalize_columns)
 
-    df_groups['Filename'] = df_groups['Filename'].map(lambda x: normalize('NFKC', x) if PLATFORM_MACOS else x).map(lambda x: x if x.endswith('.txt') else x + '.txt')
+    df_groups['Filename'] = df_groups['Filename'].map(lambda x: normalize('NFC', x) if PLATFORM_MACOS else x).map(lambda x: x if x.endswith('.txt') else x + '.txt')
 
     # Sanity checks:
     filenames_set = set(filenames)
