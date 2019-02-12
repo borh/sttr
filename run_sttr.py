@@ -229,8 +229,6 @@ def get_data(corpus_path, meta_fields, metadata_file):
             'group': 'Brow',
         }, inplace=True)
     df_groups.columns = df_groups.columns.str.capitalize().str.replace('-', '_')
-    # df_groups.rename(columns=lambda s: s.lower().replace('-', '_'),
-    #                  inplace=True)
     selected_columns = set(df_groups.columns.tolist()) & set(columns)
     df_groups = df_groups[list(selected_columns)]
 
