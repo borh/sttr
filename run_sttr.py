@@ -374,9 +374,9 @@ if __name__ == '__main__':
                         help='do a pass through all specified corpus directories to make sure they conform to project standards')
     parser.add_argument('-m', '--meta', default='Brow', dest='meta_fields',
                         help='specify metadata fields in CSV to use as categorical features, optional, (default=\'Brow\'); Format: specify as CSV string')
-    parser.add_argument('-t', '--types', default='Tokenized,Lemmatized,POS,POS_Tri,UniversalPOS,UniversalPOS_Tri',
+    parser.add_argument('-t', '--types', default='Tokenized,Lemmatized,POS,POS_Tri,UniversalPOS,UniversalPOS_Tri,ds,narr',
                         dest='types',
-                        help='specify folders to use (Tokenized or POS etc.), optional, (default=\'Tokenized,Lemmatized,POS,POS_Tri,UniversalPOS,UniversalPOS_Tri\')')
+                        help='specify folders to use (Tokenized or POS etc.), optional, (default=\'Tokenized,Lemmatized,POS,POS_Tri,UniversalPOS,UniversalPOS_Tri,ds,narr\')')
     parser.add_argument('-p', '--remove-punctuation', default=False, action='store_true', dest='remove_punctuation',
                         help='remove punctuation, optional, (default=\'False\')')
     parser.add_argument('-f', '--field', default=0, action='store', type=int, dest='field',
