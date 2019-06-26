@@ -172,6 +172,7 @@ def calculate_measures(filenames, winsize, remove_punctuation, field, is_tokens=
 
         if text_len == 0:
             print('Empty file \'{}\', skipping...'.format(file))
+            yules_ks.append(None)
             sttr_results.append((os.path.split(file)[1],) + (None, None, None))
             text_lengths.append(text_len)
             sentence_means.append(None)
