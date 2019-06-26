@@ -247,8 +247,9 @@ def get_data(corpus_path, meta_fields, metadata_file):
             'idno': 'Filename',
             'textid': 'Filename',
             'pubyear-orig': 'Year',
-            'supergenre': 'Genre',
             'group': 'Brow',
+            'author.name': 'Author',
+            'narrative.ps': 'Narrative-Perspective',
         }, inplace=True)
     df_groups.columns = df_groups.columns.str.capitalize().str.replace('-', '_')
     selected_columns = set(df_groups.columns.tolist()) & set(columns)
