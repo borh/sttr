@@ -167,6 +167,13 @@ def calculate_measures(filenames, winsize, remove_punctuation, field, is_tokens=
         text, text_len, sentence_length_mean, sentence_length_sd = read_txt(
             file, remove_punctuation, field, is_tokens
         )
+        if text_len < winsize:
+            print('Skipping \'{}\' as text length ({}) is less than window size ({})'.format(
+                file,
+                text_len,
+                winsize
+            ))
+            continue
         yules_ks.append(yule_k(text))
         sttr_results.append((os.path.split(file)[1],) + sttr(text, winsize=winsize))
         text_lengths.append(text_len)
