@@ -54,11 +54,13 @@ def sttr(wordlist, winsize, ci=True):
         results.append(ttr(wordlist[i*winsize:(i*winsize)+winsize]))
     if not ci:
         return mean(results)
-    else:
+    elif len(results) > 1:
         r = mean(results)
         ci = sttr_ci(results)
         sd = stdev(results)
         return r, ci, sd
+    else:
+        return results[0], 0, 0
 
 
 def yule_k_(text_length, frequency_spectrum):
