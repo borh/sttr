@@ -12,7 +12,28 @@ corpora <- read_tsv('merged_results.tsv', col_types = 'cfddddddfidffffi') %>% fi
 corpora.melt <- melt(corpora %>% filter(Window==500) %>% select(-Window, -STTR_CI, -STTR_SD))
 
 ## Plots
-cairo_pdf('sttr-plots.pdf', onefile = TRUE, width = 16, heigh = 12)
+get_os <- function(){
+    sysinf <- Sys.info()
+    if (!is.null(sysinf)){
+        os <- sysinf['sysname']
+    if (os == 'Darwin')
+        os <- "osx"
+    } else { ## mystery machine
+        os <- .Platform$OS.type
+        if (grepl("^darwin", R.version$os))
+            os <- "osx"
+        if (grepl("linux-gnu", R.version$os))
+            os <- "linux"
+    }
+    tolower(os)
+}
+os <- get_os()
+
+if (os == 'linux') {
+    cairo_pdf('sttr-plots.pdf', onefile = TRUE, width = 16, heigh = 12)
+} else if (os == 'osx') {
+    pdf('sttr-plots.pdf', onefile = TRUE, width = 16, heigh = 12)
+}
 
 date <- as.POSIXct(Sys.time())
 
