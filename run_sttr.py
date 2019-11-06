@@ -213,7 +213,7 @@ def start_msg(args):
     print('Processing folder types\n{}\nfor corpora under\n{}\nusing windows sizes: {}.'.format(
         pprint.pformat(args.types),
         pprint.pformat(args.datadirs),
-        list(range(args.min_window, args.max_window+1, 100))
+        args.fixed_windows if args.fixed_windows else list(range(args.min_window, args.max_window+1, 100))
     ))
 
 
@@ -289,24 +289,33 @@ def get_data(corpus_path, meta_fields, metadata_file):
         pprint.pprint(compact_format_files(groups_filenames_set.difference(filenames_set)))
         print('Only on filesystem:')
         pprint.pprint(compact_format_files(filenames_set.difference(groups_filenames_set)))
-        return None
+        # return None
+        common_files = list(groups_filenames_set.intersection(filenames_set))
+        print('Proceeding with files: ', common_files)
+        return common_files, df_groups
 
     print('Processing folder type {}.'.format(Path(corpus_path).name))
     return groups_filenames, df_groups
 
 
 def corpus_measures(groups_filenames, df_groups, remove_punctuation, field,
-                    min_window, max_window, check_only, is_tokens):
+                    min_window, max_window, fixed_windows, check_only, is_tokens):
     if check_only:
         return None
 
     # calculate sttr for window size 500
+    if fixed_windows:
+        min_window = fixed_windows[0]
     df_results = calculate_measures(groups_filenames, min_window, remove_punctuation, field, is_tokens)
     ngroups = df_groups.copy()
     ngroups.insert(loc=1, column='Window', value=500)
 
     # repeat for 600...1000 winsize
-    for i in range(min_window+100, max_window+1, 100):  # i: window size
+    ws = range(min_window+100, max_window+1, 100)
+    if fixed_windows:
+        ws = fixed_windows[1:]
+
+    for i in ws:  # i: window size
         r = calculate_measures(groups_filenames, i, remove_punctuation, field, is_tokens)
         df_results = df_results.append(r)
         g = df_groups.copy()  # insert window size for merging
@@ -316,7 +325,7 @@ def corpus_measures(groups_filenames, df_groups, remove_punctuation, field,
 
 
 def corpora_merge(corpora_paths, corpus_types, out, meta_fields, remove_punctuation, field,
-                  min_window, max_window, check_only):
+                  min_window, max_window, fixed_windows, check_only):
     results, ngroups = pd.DataFrame(), pd.DataFrame(columns=['Filename', 'Corpus_name', 'Type'] + meta_fields)
 
     corpora = set(chain.from_iterable(map(find_corpora, corpora_paths)))
@@ -337,7 +346,7 @@ def corpora_merge(corpora_paths, corpus_types, out, meta_fields, remove_punctuat
             is_tokens = False if corpus_type.endswith('Tri') else True
 
             measures_data = corpus_measures(groups_filenames, df_groups, punc, field,
-                                            min_window, max_window, check_only,
+                                            min_window, max_window, fixed_windows, check_only,
                                             is_tokens=is_tokens)
             if check_only:
                 continue
@@ -373,7 +382,8 @@ def corpora_merge(corpora_paths, corpus_types, out, meta_fields, remove_punctuat
     ngroups.reset_index(inplace=True, drop=True)
 
     if not check_only:
-        write_results('merged_results_' + '+'.join(ngroups['Corpus_name'].unique()), out, results, ngroups)
+        # write_results('merged_results_' + '+'.join(ngroups['Corpus_name'].unique()), out, results, ngroups)
+        write_results('merged_results', out, results, ngroups)
 
 
 def main(args):
@@ -385,14 +395,14 @@ def main(args):
     meta_fields = list(map(lambda s: s.capitalize(), args.meta_fields.split(',')))
     corpora_merge(corpora_paths, corpus_types, args.out, meta_fields,
                   args.remove_punctuation, args.field,
-                  args.min_window, args.max_window, args.check_only)
+                  args.min_window, args.max_window, args.fixed_windows, args.check_only)
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='calculates sttr')
     parser.add_argument('datadirs', type=str, help='directory with data in csv files', nargs='+')
     parser.add_argument('-o', '--out', default='./', dest='out',
-                        help='specify output directory for results files, optional, (default=\'./\'--teh current directory)')
+                        help='specify output directory for results files, optional, (default=\'./\'--the current directory)')
     parser.add_argument('-c', '--check-only', default=False, action='store_true', dest='check_only',
                         help='do a pass through all specified corpus directories to make sure they conform to project standards')
     parser.add_argument('-m', '--meta', default='Brow', dest='meta_fields',
@@ -408,4 +418,6 @@ if __name__ == '__main__':
                         help='maximum window size, optional, (default=\'1000\')')
     parser.add_argument('--minwin', default=500, action='store', type=int, dest='min_window',
                         help='minimum window size, optional, (default=\'500\')')
+    parser.add_argument('--fixwin', default=None, action='append', type=int, dest='fixed_windows',
+                        help='specify fixed windows sizes, optional (default=None)')
     main(parser.parse_args())
