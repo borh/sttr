@@ -9,7 +9,9 @@ library(reshape2)
 ## Data
 corpora <- read_tsv('merged_results.tsv', col_types = 'cfddddddfidffffi') %>% filter(Corpus_name!="grouptest")
 
-corpora.melt <- melt(corpora %>% filter(Window==500) %>% select(-Window, -STTR_CI, -STTR_SD))
+corpora.melt <- melt(corpora 
+		     # %>% filter(Window==10000) 
+		     %>% select(-Window, -STTR_CI, -STTR_SD))
 
 ## Plots
 get_os <- function(){
@@ -50,7 +52,7 @@ ggplot(corpora.melt %>% filter(variable=='Sent_len_mean') %>% filter(Type=='Toke
     facet_grid(Type ~ Corpus_name, scales = 'free') +
     ggtitle(paste('Results matrix: Mean sentence length (Tokenized)', date))
 
-for (measure in c('STTR', 'Yules_K')) {
+for (measure in c('STTR', 'Yules_K', 'Sent_len_mean')) {
     for (corpus in unique(corpora.melt$Corpus_name)) {
         d.authors <- corpora.melt %>%
             filter(variable==measure) %>%
