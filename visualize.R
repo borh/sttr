@@ -57,7 +57,8 @@ for (measure in c('STTR', 'Yules_K', 'Sent_len_mean')) {
         d.authors <- corpora.melt %>%
             filter(variable==measure) %>%
             filter(Corpus_name==corpus) %>%
-            filter(!is.na(Author))
+            filter(!is.na(Author)) %>%
+            filter(!is.na(Brow))
         if (nrow(d.authors) > 1) {
             g <- ggplot(d.authors, aes(Author, value, color = Brow)) +
                 geom_boxplot() +

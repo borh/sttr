@@ -246,12 +246,17 @@ def get_data(corpus_path, meta_fields, metadata_file):
         columns={
             'idno': 'Filename',
             'textid': 'Filename',
+            'identifier': 'Filename',
             'pubyear-orig': 'Year',
-            'group': 'Brow',
+            'subgenre': 'Genre',
             'author.name': 'Author',
+            'author-name': 'Author',
+            'book-title': 'Title',
             'narrative.ps': 'Narrative-Perspective',
         }, inplace=True)
     df_groups.columns = df_groups.columns.str.capitalize().str.replace('-', '_')
+    if 'Brow' not in df_groups.columns:
+        df_groups.rename(columns={'Group': 'Brow'}, inplace=True)
     selected_columns = set(df_groups.columns.tolist()) & set(columns)
     df_groups = df_groups[list(selected_columns)]
 
