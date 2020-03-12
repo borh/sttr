@@ -158,6 +158,9 @@ def calculate_measures(filenames, winsize, remove_punctuation, field, is_tokens=
     calculate sttr for all files in filenames
     :param filenames: list of filenames
     :param winsize: int winsize for sttr calculation
+    :param field: column index in corpus text to use as token
+    :param remove_punctuation: remove non-textual tokens from analysis
+    :param is_tokens: calculate measures for tokens (use false for trigrams)
     :return: pandas df with results
     '''
     sttr_results = []
