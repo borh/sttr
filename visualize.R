@@ -7,11 +7,11 @@ library(Kendall)
 library(reshape2)
 
 ## Data
-corpora <- read_tsv('merged_results.tsv', col_types = 'cfddddddfidffffi') %>% filter(Corpus_name!="grouptest")
+corpora <- read_csv('merged_results.tsv') %>% filter(Corpus_name!="grouptest")
 
 corpora.melt <- melt(corpora 
 		     # %>% filter(Window==10000) 
-		     %>% select(-Window, -STTR_CI, -STTR_SD))
+		     %>% select(-Window))
 
 ## Plots
 get_os <- function(){
@@ -41,16 +41,22 @@ date <- as.POSIXct(Sys.time())
 
 for (measure in c('STTR', 'Yules_K')) {
     g <- ggplot(corpora.melt %>% filter(variable==measure), aes(variable, value, color = Brow)) +
-        geom_boxplot() +
+        geom_boxplot() + geom_jitter(position=position_jitterdodge(), size=0.3) +
         facet_grid(Type ~ Corpus_name, scales = 'free', space = 'fixed') +
         ggtitle(paste('Results matrix:', measure, date))
     print(g)
 }
 
 ggplot(corpora.melt %>% filter(variable=='Sent_len_mean') %>% filter(Type=='Tokenized'), aes(variable, value, color = Brow)) +
-    geom_boxplot() +
+    geom_boxplot() + geom_jitter(position=position_jitterdodge(), size=0.3) +
     facet_grid(Type ~ Corpus_name, scales = 'free') +
     ggtitle(paste('Results matrix: Mean sentence length (Tokenized)', date))
+
+ggplot(corpora.melt %>% filter(Type=='Tokenized'), aes(variable, value, group = Corpus_name, color = Corpus_name)) +
+    geom_boxplot() + geom_jitter(position=position_jitterdodge(), size=0.3) +
+    facet_wrap(vars(variable), scales = 'free') +
+    ggtitle(paste('Results matrix: All (Tokenized)', date))
+
 
 for (measure in c('STTR', 'Yules_K', 'Sent_len_mean')) {
     for (corpus in unique(corpora.melt$Corpus_name)) {
